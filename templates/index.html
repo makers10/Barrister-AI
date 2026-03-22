@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Barrister Pro — Professional legal document analysis. High-tier AI for enterprise legal teams.">
+    <title>Barrister Pro | Legal Intelligence</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- System Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="app-layout">
+        <!-- Dashboard Sidebar -->
+        <aside class="sidebar">
+            <header class="sidebar-header">
+                <svg class="sidebar-logo" viewBox="0 0 56 56" fill="none">
+                    <rect width="56" height="56" rx="12" fill="var(--clr-gold)" fill-opacity="0.1" />
+                    <path d="M28 12V42M18 18H38M14 30C14 30 16 24 18 18M42 30C42 30 40 24 38 18M14 31C14 32.38 10.38 33.5 6 33.5M42 31C42 32.38 45.62 33.5 50 33.5" stroke="var(--clr-gold)" stroke-width="2" stroke-linecap="round" />
+                    <circle cx="28" cy="15" r="2" fill="var(--clr-gold)" />
+                </svg>
+                <h1 class="sidebar-title">Barrister Pro</h1>
+            </header>
+
+            <nav class="sidebar-nav">
+                <div class="nav-label">Analysis Toolkit</div>
+                <button class="nav-item active" onclick="showView('workspace')">
+                    <span class="nav-icon"><i class="fas fa-microchip"></i></span>
+                    AI Intelligence
+                </button>
+                <button class="nav-item" id="navFull" disabled onclick="runAnalysis('full')">
+                    <span class="nav-icon"><i class="fas fa-file-contract"></i></span>
+                    Full Legal Audit
+                </button>
+                <button class="nav-item" id="navSummary" disabled onclick="runAnalysis('summary')">
+                    <span class="nav-icon"><i class="fas fa-list-check"></i></span>
+                    Executive Summary
+                </button>
+                <button class="nav-item" id="navRisks" disabled onclick="runAnalysis('risks')">
+                    <span class="nav-icon"><i class="fas fa-shield-halved"></i></span>
+                    Risk Assessment
+                </button>
+                <button class="nav-item" id="navKeys" disabled onclick="runAnalysis('keypoints')">
+                    <span class="nav-icon"><i class="fas fa-key"></i></span>
+                    Key Obligations
+                </button>
+
+                <div class="nav-label">Legal Tools</div>
+                <button class="nav-item" onclick="window.location.reload()">
+                    <span class="nav-icon"><i class="fas fa-plus"></i></span>
+                    New Analysis
+                </button>
+            </nav>
+
+            <footer class="sidebar-footer">
+                <div class="system-status">
+                    <span class="status-dot"></span>
+                    Legal Intelligence Secured
+                </div>
+            </footer>
+        </aside>
+
+        <!-- Main Workspace Area -->
+        <main class="main-content">
+            <header class="top-nav">
+                <div id="docPill" class="doc-pill" style="display: none;">
+                    <span class="icon"><i class="fas fa-file-pdf"></i></span>
+                    <span class="name" id="docName">document.pdf</span>
+                </div>
+                <div class="header-badge" id="appStatus">
+                    <span class="status-dot"></span> ⚖️ System Ready
+                </div>
+            </header>
+
+            <div class="workspace" id="workspace">
+                <!-- Document Upload Section (Initial) -->
+                <section id="uploadSection" class="workspace-section">
+                    <div class="pro-card hero">
+                        <div class="pro-upload" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                            <span class="icon"><i class="fas fa-scale-balanced"></i></span>
+                            <h3>Begin Document Analysis</h3>
+                            <p>Upload a legal PDF document to initialize the intelligence engine</p>
+                            <input type="file" id="fileInput" accept=".pdf" hidden>
+                            <div id="uploadStatus" class="upload-status"></div>
+                            <div id="scanner" class="scanner-line" style="display: none;"></div>
+                        </div>
+
+                        <!-- Analysis Insights (Hidden until upload) -->
+                        <div id="docStats" class="stats-grid" style="display: none;">
+                            <div class="stat-item">
+                                <span class="stat-value" id="infoPages">0</span>
+                                <span class="stat-label">Document Pages</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="infoSections">0</span>
+                                <span class="stat-label">Identified Sections</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="infoChars">0</span>
+                                <span class="stat-label">Character Units</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Intelligence Workspace (Split View) -->
+                <section id="intelligenceArea" class="workspace-section" style="display: none;">
+                    <div class="split-view">
+                        <!-- Analysis Results -->
+                        <div class="analysis-area" id="reportsArea">
+                            <!-- Report cards will append here -->
+                        </div>
+
+                        <!-- AI Chat Assistant (Sticky Sidebar Insight) -->
+                        <div class="pro-chat">
+                            <header class="report-header">
+                                <h3><i class="fas fa-robot"></i> Barrister AI</h3>
+                                <div class="system-status" id="chatStatus">
+                                    <span class="status-dot"></span> Ready
+                                </div>
+                            </header>
+                            <div class="chat-messages" id="chatMessages">
+                                <div class="msg bot">
+                                    <p>I have indexed the document. You can now use the <strong>Analysis Toolkit</strong> in the sidebar or ask specific questions below.</p>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <div class="input-group">
+                                    <textarea id="questionInput" placeholder="Ask a legal question..." rows="1"></textarea>
+                                    <button class="btn-icon" id="sendBtn" onclick="askQuestion()">
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Redesigned JS -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+
+</html>
