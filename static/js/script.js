@@ -5,6 +5,7 @@
 
 // ==================== State Management ====================
 let isProcessing = false;
+let abortController = null;
 
 // ==================== Initialization ====================
 document.addEventListener('DOMContentLoaded', () => {
@@ -157,7 +158,6 @@ function enableSidebarActions(enabled) {
 // ==================== Analysis Actions ====================
 async function runAnalysis(type) {
     if (isProcessing) return;
-    isProcessing = true;
     
     const endpoints = {
         'full': { url: '/analyze', key: 'analysis', label: 'Pro Legal Audit' },
@@ -176,10 +176,14 @@ async function runAnalysis(type) {
     const loadingId = addBotMessage(`<div class="pro-spinner"></div> Analyzing <strong>${config.label}</strong>...`);
     updateChatStatus('Analyzing...', true);
     
+    toggleProcessing(true);
+    abortController = new AbortController();
+    
     try {
         const response = await fetch(config.url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            signal: abortController.signal
         });
 
         const data = await response.json();
@@ -194,10 +198,36 @@ async function runAnalysis(type) {
         }
     } catch (error) {
         removeMessage(loadingId);
-        addBotMessage('❌ Intelligent engine is temporarily unavailable.');
+        if (error.name === 'AbortError') {
+            // Handled in stopProcess
+        } else {
+            addBotMessage('❌ Intelligent engine is temporarily unavailable.');
+        }
     } finally {
-        isProcessing = false;
+        toggleProcessing(false);
         updateChatStatus('Ready', false);
+    }
+}
+
+function stopProcess() {
+    if (abortController) {
+        abortController.abort();
+        addBotMessage('🛑 Process stopped by user.');
+    }
+}
+
+function toggleProcessing(processing) {
+    isProcessing = processing;
+    const sendBtn = document.getElementById('sendBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    if (sendBtn && stopBtn) {
+        if (processing) {
+            sendBtn.style.display = 'none';
+            stopBtn.style.display = 'flex';
+        } else {
+            sendBtn.style.display = 'flex';
+            stopBtn.style.display = 'none';
+        }
     }
 }
 
@@ -230,7 +260,6 @@ async function askQuestion() {
     const question = input.value.trim();
 
     if (!question || isProcessing) return;
-    isProcessing = true;
 
     // User Message
     addUserMessage(question);
@@ -241,11 +270,15 @@ async function askQuestion() {
     const loadingId = addBotMessage('<div class="pro-spinner"></div> Synthesizing answer...');
     updateChatStatus('Synthesizing...', true);
 
+    toggleProcessing(true);
+    abortController = new AbortController();
+
     try {
         const response = await fetch('/ask', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question })
+            body: JSON.stringify({ question }),
+            signal: abortController.signal
         });
 
         const data = await response.json();
@@ -258,9 +291,13 @@ async function askQuestion() {
         }
     } catch (error) {
         removeMessage(loadingId);
-        addBotMessage('❌ Connection to AI heart failed.');
+        if (error.name === 'AbortError') {
+            // Already handled in stopProcess message
+        } else {
+            addBotMessage('❌ Connection to AI heart failed.');
+        }
     } finally {
-        isProcessing = false;
+        toggleProcessing(false);
         updateChatStatus('Ready', false);
         input.focus();
     }
