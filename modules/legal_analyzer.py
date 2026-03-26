@@ -48,8 +48,8 @@ def _get_llm(model_name: str = None) -> ChatOpenAI:
         },
         temperature=0.3,  # Lower temperature for legal accuracy
         max_tokens=2000,   # Need more tokens for legal analysis
-        request_timeout=60,
-        max_retries=0
+        request_timeout=35,
+        max_retries=1
     )
 
 
@@ -72,7 +72,7 @@ def _invoke_llm_with_fallback(prompt_template: ChatPromptTemplate, variables: Di
 
         except Exception as e:
             logger.warning(f"⚠️ {model_name} failed: {type(e).__name__}: {e}")
-            time.sleep(5)
+            time.sleep(2)
             continue
 
     logger.error("❌ All LLM models failed")
