@@ -50,7 +50,32 @@ document.addEventListener('DOMContentLoaded', () => {
             askQuestion();
         }
     });
+
+    // Handle initial active state
+    showView('workspace');
 });
+
+// ==================== Navigation ====================
+function showView(viewId) {
+    const views = ['workspace']; // Add more if other views are implemented
+    views.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = (id === viewId) ? 'block' : 'none';
+    });
+
+    // Update active state in sidebar
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+        if (item.getAttribute('onclick')?.includes(viewId) || item.id?.includes(viewId)) {
+            item.classList.add('active');
+        } else {
+            // Only remove active if it's a view-switching button
+            if (item.getAttribute('onclick')?.includes('showView')) {
+                item.classList.remove('active');
+            }
+        }
+    });
+}
 
 // ==================== AI Analysis Pipeline ====================
 async function handleUpload(file) {
