@@ -231,6 +231,46 @@ function toggleProcessing(processing) {
     }
 }
 
+function resetWorkspace() {
+    // 1. Abort any running processes
+    if (abortController) {
+        abortController.abort();
+    }
+    
+    isProcessing = false;
+    
+    // 2. Transition Workspace
+    document.getElementById('intelligenceArea').style.display = 'none';
+    const uploadSection = document.getElementById('uploadSection');
+    uploadSection.style.display = 'block';
+    uploadSection.style.opacity = '1';
+    
+    // 3. Reset document UI pointers
+    const docPill = document.getElementById('docPill');
+    if (docPill) docPill.style.display = 'none';
+    
+    const docStats = document.getElementById('docStats');
+    if (docStats) docStats.style.display = 'none';
+    
+    const uploadStatus = document.getElementById('uploadStatus');
+    if (uploadStatus) uploadStatus.style.display = 'none';
+    
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) fileInput.value = '';
+    
+    // 4. Clear content areas
+    document.getElementById('chatMessages').innerHTML = `
+        <div class="msg bot">
+            <p>Analysis cleared. Upload a new legal document to proceed.</p>
+        </div>
+    `;
+    document.getElementById('reportsArea').innerHTML = '';
+    
+    // 5. Sidebar & State Reset
+    enableSidebarActions(false);
+    toggleProcessing(false);
+}
+
 function addReportCard(title, content, sources) {
     const reportsArea = document.getElementById('reportsArea');
     const cardId = 'report-' + Date.now();
