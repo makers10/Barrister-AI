@@ -78,7 +78,7 @@
                 <!-- Document Upload Section (Initial) -->
                 <section id="uploadSection" class="workspace-section">
                     <div class="pro-card hero">
-                        <div class="pro-upload" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                        <div class="pro-upload" id="uploadArea" onclick="if(!isProcessing) document.getElementById('fileInput').click()">
                             <span class="icon"><i class="fas fa-scale-balanced"></i></span>
                             <h3>Begin Document Analysis</h3>
                             <p>Upload a legal PDF document to initialize the intelligence engine</p>

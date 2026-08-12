@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     uploadArea.addEventListener('dragover', (e) => {
         e.preventDefault();
-        uploadArea.classList.add('active');
+        if (!isProcessing) uploadArea.classList.add('active');
     });
 
     uploadArea.addEventListener('dragleave', () => {
@@ -36,6 +36,10 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadArea.addEventListener('drop', (e) => {
         e.preventDefault();
         uploadArea.classList.remove('active');
+        if (isProcessing) {
+            updateStatus('⚠️ Please wait — analysis in progress.', 'error');
+            return;
+        }
         const file = e.dataTransfer.files[0];
         if (file && file.type === 'application/pdf') {
             handleUpload(file);

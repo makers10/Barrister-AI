@@ -47,6 +47,9 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 # In-memory store for processed documents (per session)
 document_store = {}
 
+# Per-session processing lock: set of session_ids currently being processed
+processing_sessions = set()
+
 
 @app.route('/')
 def index():
@@ -67,50 +70,64 @@ def upload_file():
         if not file.filename.lower().endswith('.pdf'):
             return jsonify({'error': 'Invalid file type. Please upload a PDF document.'}), 400
 
+        # Determine session_id early so we can check the lock before doing any work
+        session_id = session.get('session_id', secrets.token_hex(8))
+
+        # Reject if this session already has an upload/analysis in flight
+        if session_id in processing_sessions:
+            return jsonify({'error': 'Please wait — a document is already being processed.'}), 429
+
+        # Acquire the processing lock for this session
+        processing_sessions.add(session_id)
+
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
 
         logger.info(f"📄 Processing uploaded file: {filename}")
 
-        # Import here to avoid circular imports and slow startup
-        from modules.legal_analyzer import process_pdf
+        try:
+            # Import here to avoid circular imports and slow startup
+            from modules.legal_analyzer import process_pdf
 
-        # Process the PDF
-        result = process_pdf(filepath)
+            # Process the PDF
+            result = process_pdf(filepath)
 
-        if not result['success']:
-            return jsonify({'error': result['error']}), 500
+            if not result['success']:
+                return jsonify({'error': result['error']}), 500
 
-        # Store in memory with session ID
-        session_id = session.get('session_id', secrets.token_hex(8))
-        session['session_id'] = session_id
-        session['current_pdf'] = filepath
-        session['current_filename'] = filename
+            # Store in memory with session ID
+            session['session_id'] = session_id
+            session['current_pdf'] = filepath
+            session['current_filename'] = filename
 
-        document_store[session_id] = {
-            'filepath': filepath,
-            'filename': filename,
-            'pages_data': result['pages_data'],
-            'chunks': result['chunks'],
-            'vector_store': result['vector_store'],
-            'doc_info': result['doc_info']
-        }
-
-        doc_info = result['doc_info']
-        detected_types = doc_info.get('detected_types', [])
-
-        return jsonify({
-            'success': True,
-            'message': f'Legal document processed successfully',
-            'filename': filename,
-            'doc_info': {
-                'total_pages': doc_info['total_pages'],
-                'total_sections': doc_info['total_sections'],
-                'detected_types': detected_types,
-                'total_characters': doc_info['total_characters']
+            document_store[session_id] = {
+                'filepath': filepath,
+                'filename': filename,
+                'pages_data': result['pages_data'],
+                'chunks': result['chunks'],
+                'vector_store': result['vector_store'],
+                'doc_info': result['doc_info']
             }
-        })
+
+            doc_info = result['doc_info']
+            detected_types = doc_info.get('detected_types', [])
+
+            return jsonify({
+                'success': True,
+                'message': f'Legal document processed successfully',
+                'filename': filename,
+                'doc_info': {
+                    'total_pages': doc_info['total_pages'],
+                    'total_sections': doc_info['total_sections'],
+                    'detected_types': detected_types,
+                    'total_characters': doc_info['total_characters']
+                }
+            })
+
+        finally:
+            # Always release the lock when upload+processing is done
+            processing_sessions.discard(session_id)
 
     except Exception as e:
         traceback.print_exc()
