@@ -1,4 +1,7 @@
-flask
+fastapi
+uvicorn
+python-multipart
+jinja2
 python-dotenv
 PyPDF2
 langchain
@@ -10,4 +13,3 @@ sentence-transformers
 transformers
 torch
 requests
-werkzeug

@@ -1,6 +1,6 @@
 # app.py
 """
-Barrister AI — Flask Application
+Barrister AI — FastAPI Application
 Advanced Legal Document Analysis Assistant
 """
 
@@ -23,9 +23,14 @@ if sys.platform == "win32":
             except Exception:
                 pass
 
-from flask import Flask, render_template, request, jsonify, session
-from werkzeug.utils import secure_filename
+from fastapi import FastAPI, Request, UploadFile, File, HTTPException
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
+from pydantic import BaseModel
 from dotenv import load_dotenv
+import uvicorn
 
 load_dotenv()
 
@@ -36,13 +41,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
-app.secret_key = os.getenv('FLASK_SECRET_KEY', secrets.token_hex(16))
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024  # 200MB max
+app = FastAPI(title="Barrister AI")
 
-# Create uploads folder
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+secret_key = os.getenv('FLASK_SECRET_KEY', secrets.token_hex(16))
+app.add_middleware(SessionMiddleware, secret_key=secret_key)
+
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
 # In-memory store for processed documents (per session)
 document_store = {}
@@ -51,38 +59,39 @@ document_store = {}
 processing_sessions = set()
 
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+@app.get('/', response_class=HTMLResponse)
+async def index(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
-@app.route('/upload', methods=['POST'])
-def upload_file():
+@app.post('/upload')
+async def upload_file(request: Request, file: UploadFile = File(...)):
     """Upload and process a legal PDF document."""
     try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file provided'}), 400
+        if not file:
+            raise HTTPException(status_code=400, detail="No file provided")
 
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No file selected")
 
         if not file.filename.lower().endswith('.pdf'):
-            return jsonify({'error': 'Invalid file type. Please upload a PDF document.'}), 400
+            raise HTTPException(status_code=400, detail="Invalid file type. Please upload a PDF document.")
 
         # Determine session_id early so we can check the lock before doing any work
-        session_id = session.get('session_id', secrets.token_hex(8))
+        session_id = request.session.get('session_id', secrets.token_hex(8))
 
         # Reject if this session already has an upload/analysis in flight
         if session_id in processing_sessions:
-            return jsonify({'error': 'Please wait — a document is already being processed.'}), 429
+            raise HTTPException(status_code=429, detail="Please wait — a document is already being processed.")
 
         # Acquire the processing lock for this session
         processing_sessions.add(session_id)
 
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
+        filename = file.filename
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        
+        with open(filepath, "wb") as buffer:
+            buffer.write(await file.read())
 
         logger.info(f"📄 Processing uploaded file: {filename}")
 
@@ -94,12 +103,12 @@ def upload_file():
             result = process_pdf(filepath)
 
             if not result['success']:
-                return jsonify({'error': result['error']}), 500
+                raise HTTPException(status_code=500, detail=result['error'])
 
             # Store in memory with session ID
-            session['session_id'] = session_id
-            session['current_pdf'] = filepath
-            session['current_filename'] = filename
+            request.session['session_id'] = session_id
+            request.session['current_pdf'] = filepath
+            request.session['current_filename'] = filename
 
             document_store[session_id] = {
                 'filepath': filepath,
@@ -113,7 +122,7 @@ def upload_file():
             doc_info = result['doc_info']
             detected_types = doc_info.get('detected_types', [])
 
-            return jsonify({
+            return {
                 'success': True,
                 'message': f'Legal document processed successfully',
                 'filename': filename,
@@ -123,32 +132,34 @@ def upload_file():
                     'detected_types': detected_types,
                     'total_characters': doc_info['total_characters']
                 }
-            })
+            }
 
         finally:
             # Always release the lock when upload+processing is done
             processing_sessions.discard(session_id)
 
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
+        raise HTTPException(status_code=500, detail=f'Server error: {str(e)}')
 
 
-def _get_document_data():
+def _get_document_data(request: Request):
     """Get the processed document data for the current session."""
-    session_id = session.get('session_id')
+    session_id = request.session.get('session_id')
     if not session_id or session_id not in document_store:
         return None
     return document_store[session_id]
 
 
-@app.route('/analyze', methods=['POST'])
-def analyze():
+@app.post('/analyze')
+async def analyze(request: Request):
     """Perform full legal analysis on the uploaded document."""
     try:
-        doc_data = _get_document_data()
+        doc_data = _get_document_data(request)
         if not doc_data:
-            return jsonify({'error': 'Please upload a document first.'}), 400
+            raise HTTPException(status_code=400, detail="Please upload a document first.")
 
         from modules.legal_analyzer import full_analysis
 
@@ -158,30 +169,35 @@ def analyze():
             doc_data['doc_info']
         )
 
-        return jsonify({
+        return {
             'success': True,
             'analysis': result['analysis'],
             'sources': result['sources']
-        })
+        }
 
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
-        return jsonify({'error': f'Analysis failed: {str(e)}'}), 500
+        raise HTTPException(status_code=500, detail=f'Analysis failed: {str(e)}')
 
 
-@app.route('/ask', methods=['POST'])
-def ask_question_route():
+class AskRequest(BaseModel):
+    question: str
+
+
+@app.post('/ask')
+async def ask_question_route(request: Request, payload: AskRequest):
     """Answer a specific legal question about the document."""
     try:
-        data = request.get_json()
-        question = data.get('question', '').strip()
+        question = payload.question.strip()
 
         if not question:
-            return jsonify({'error': 'No question provided'}), 400
+            raise HTTPException(status_code=400, detail="No question provided")
 
-        doc_data = _get_document_data()
+        doc_data = _get_document_data(request)
         if not doc_data:
-            return jsonify({'error': 'Please upload a document first.'}), 400
+            raise HTTPException(status_code=400, detail="Please upload a document first.")
 
         from modules.legal_analyzer import ask_question
 
@@ -192,24 +208,26 @@ def ask_question_route():
             question
         )
 
-        return jsonify({
+        return {
             'success': True,
             'answer': result['answer'],
             'sources': result['sources']
-        })
+        }
 
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
-        return jsonify({'error': f'Error: {str(e)}'}), 500
+        raise HTTPException(status_code=500, detail=f'Error: {str(e)}')
 
 
-@app.route('/summary', methods=['POST'])
-def summary():
+@app.post('/summary')
+async def summary(request: Request):
     """Generate a structured summary of the document."""
     try:
-        doc_data = _get_document_data()
+        doc_data = _get_document_data(request)
         if not doc_data:
-            return jsonify({'error': 'Please upload a document first.'}), 400
+            raise HTTPException(status_code=400, detail="Please upload a document first.")
 
         from modules.legal_analyzer import get_summary
 
@@ -219,24 +237,26 @@ def summary():
             doc_data['doc_info']
         )
 
-        return jsonify({
+        return {
             'success': True,
             'summary': result['summary'],
             'sources': result['sources']
-        })
+        }
 
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
-        return jsonify({'error': f'Summary failed: {str(e)}'}), 500
+        raise HTTPException(status_code=500, detail=f'Summary failed: {str(e)}')
 
 
-@app.route('/risks', methods=['POST'])
-def risks():
+@app.post('/risks')
+async def risks(request: Request):
     """Perform risk analysis on the document."""
     try:
-        doc_data = _get_document_data()
+        doc_data = _get_document_data(request)
         if not doc_data:
-            return jsonify({'error': 'Please upload a document first.'}), 400
+            raise HTTPException(status_code=400, detail="Please upload a document first.")
 
         from modules.legal_analyzer import get_risk_analysis
 
@@ -246,24 +266,26 @@ def risks():
             doc_data['doc_info']
         )
 
-        return jsonify({
+        return {
             'success': True,
             'risk_analysis': result['risk_analysis'],
             'sources': result['sources']
-        })
+        }
 
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
-        return jsonify({'error': f'Risk analysis failed: {str(e)}'}), 500
+        raise HTTPException(status_code=500, detail=f'Risk analysis failed: {str(e)}')
 
 
-@app.route('/keypoints', methods=['POST'])
-def keypoints():
+@app.post('/keypoints')
+async def keypoints(request: Request):
     """Extract key points from the document."""
     try:
-        doc_data = _get_document_data()
+        doc_data = _get_document_data(request)
         if not doc_data:
-            return jsonify({'error': 'Please upload a document first.'}), 400
+            raise HTTPException(status_code=400, detail="Please upload a document first.")
 
         from modules.legal_analyzer import get_key_points
 
@@ -273,19 +295,21 @@ def keypoints():
             doc_data['doc_info']
         )
 
-        return jsonify({
+        return {
             'success': True,
             'key_points': result['key_points'],
             'sources': result['sources']
-        })
+        }
 
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
-        return jsonify({'error': f'Key points extraction failed: {str(e)}'}), 500
+        raise HTTPException(status_code=500, detail=f'Key points extraction failed: {str(e)}')
 
 
 if __name__ == '__main__':
     port = int(os.getenv('FLASK_PORT', 5000))
     debug = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
-    logger.info(f"⚖️ Barrister AI starting on port {port}...")
-    app.run(debug=debug, port=port, use_reloader=False)
+    logger.info(f"⚖️ Barrister AI starting on port {port} with FastAPI...")
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=debug)
