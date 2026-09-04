@@ -23,13 +23,21 @@ if sys.platform == "win32":
             except Exception:
                 pass
 
+# pyrefly: ignore [missing-import]
 from fastapi import FastAPI, Request, UploadFile, File, HTTPException
+# pyrefly: ignore [missing-import]
 from fastapi.responses import JSONResponse, HTMLResponse
+# pyrefly: ignore [missing-import]
 from fastapi.staticfiles import StaticFiles
+# pyrefly: ignore [missing-import]
 from fastapi.templating import Jinja2Templates
+# pyrefly: ignore [missing-import]
 from starlette.middleware.sessions import SessionMiddleware
+# pyrefly: ignore [missing-import]
 from pydantic import BaseModel
+# pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
+# pyrefly: ignore [missing-import]
 import uvicorn
 
 load_dotenv()
@@ -110,14 +118,31 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
             request.session['current_pdf'] = filepath
             request.session['current_filename'] = filename
 
-            document_store[session_id] = {
+            document_data = {
                 'filepath': filepath,
                 'filename': filename,
                 'pages_data': result['pages_data'],
                 'chunks': result['chunks'],
-                'vector_store': result['vector_store'],
                 'doc_info': result['doc_info']
             }
+
+            if supabase:
+                try:
+                    # Upsert session data to Supabase
+                    supabase.table('document_sessions').upsert({
+                        'session_id': session_id,
+                        'filename': filename,
+                        'filepath': filepath,
+                        'doc_info': result['doc_info'],
+                        'pages_data': result['pages_data'],
+                        'chunks': result['chunks']
+                    }).execute()
+                    logger.info(f"✅ Session {session_id} saved to Supabase")
+                except Exception as e:
+                    logger.error(f"❌ Supabase insert failed: {e}")
+                    document_store[session_id] = document_data
+            else:
+                document_store[session_id] = document_data
 
             doc_info = result['doc_info']
             detected_types = doc_info.get('detected_types', [])
@@ -148,9 +173,36 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
 def _get_document_data(request: Request):
     """Get the processed document data for the current session."""
     session_id = request.session.get('session_id')
-    if not session_id or session_id not in document_store:
+    if not session_id:
         return None
-    return document_store[session_id]
+
+    doc_data = None
+    if supabase:
+        try:
+            response = supabase.table('document_sessions').select('*').eq('session_id', session_id).execute()
+            if response.data and len(response.data) > 0:
+                doc_data = response.data[0]
+        except Exception as e:
+            logger.error(f"❌ Failed to fetch session from Supabase: {e}")
+            
+    if not doc_data:
+        # Fallback to in-memory if Supabase not configured or failed
+        if session_id not in document_store:
+            return None
+        doc_data = document_store[session_id]
+
+    # Reconstruct vector_store from cached .pkl file
+    if 'vector_store' not in doc_data:
+        filepath = doc_data.get('filepath')
+        cache_path = f"{os.path.basename(filepath)}.pkl"
+        try:
+            with open(cache_path, "rb") as f:
+                doc_data['vector_store'] = pickle.load(f)
+        except Exception as e:
+            logger.error(f"❌ Failed to load vector store from cache: {e}")
+            return None
+
+    return doc_data
 
 
 @app.post('/analyze')
