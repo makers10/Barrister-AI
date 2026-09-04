@@ -9,6 +9,7 @@ import sys
 import traceback
 import secrets
 import logging
+import tempfile
 
 # Windows DLL fix for PyTorch
 if sys.platform == "win32":
@@ -69,8 +70,7 @@ app = FastAPI(title="Barrister AI")
 secret_key = os.getenv('FLASK_SECRET_KEY', secrets.token_hex(16))
 app.add_middleware(SessionMiddleware, secret_key=secret_key)
 
-UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -111,24 +111,39 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
         supabase.table('document_sessions').upsert({
             'session_id': session_id,
             'filename': file.filename,
-            'filepath': os.path.join(UPLOAD_FOLDER, file.filename),
+            'filepath': '',  # Will update after upload
             'status': 'processing'
         }).execute()
 
         filename = file.filename
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file_bytes = await file.read()
+        storage_path = f"{session_id}/{filename}"
         
-        with open(filepath, "wb") as buffer:
-            buffer.write(await file.read())
+        # Upload to Supabase Storage
+        try:
+            supabase.storage.from_("documents").upload(
+                storage_path,
+                file_bytes,
+                {"content-type": "application/pdf"}
+            )
+            filepath = supabase.storage.from_("documents").get_public_url(storage_path)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to upload to cloud storage: {str(e)}")
 
         logger.info(f"📄 Processing uploaded file: {filename}")
 
+        tmp_filepath = None
         try:
             # Import here to avoid circular imports and slow startup
             from modules.legal_analyzer import process_pdf
+            
+            # Write to temporary file for PDF processing
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                tmp.write(file_bytes)
+                tmp_filepath = tmp.name
 
             # Process the PDF in a threadpool to avoid blocking
-            result = await run_in_threadpool(process_pdf, filepath)
+            result = await run_in_threadpool(process_pdf, tmp_filepath, session_id)
 
             if not result['success']:
                 raise HTTPException(status_code=500, detail=result['error'])
@@ -173,6 +188,12 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
             raise
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f'Server error: {str(e)}')
+    finally:
+        if 'tmp_filepath' in locals() and tmp_filepath and os.path.exists(tmp_filepath):
+            try:
+                os.remove(tmp_filepath)
+            except Exception:
+                pass
 
 
 def _get_document_data(request: Request):
@@ -193,15 +214,12 @@ def _get_document_data(request: Request):
     if not doc_data:
         return None
 
-    # Reconstruct vector_store from cached .pkl file
+    # Initialize vector_store connection
     if 'vector_store' not in doc_data:
-        filepath = doc_data.get('filepath')
-        cache_path = f"{os.path.basename(filepath)}.pkl"
-        try:
-            with open(cache_path, "rb") as f:
-                doc_data['vector_store'] = pickle.load(f)
-        except Exception as e:
-            logger.error(f"❌ Failed to load vector store from cache: {e}")
+        from modules.vector_store import get_vector_store
+        doc_data['vector_store'] = get_vector_store()
+        if not doc_data['vector_store']:
+            logger.error("❌ Failed to initialize Supabase vector store")
             return None
 
     return doc_data
@@ -221,7 +239,8 @@ async def analyze(request: Request):
             full_analysis,
             doc_data['vector_store'],
             doc_data['chunks'],
-            doc_data['doc_info']
+            doc_data['doc_info'],
+            doc_data['session_id']
         )
 
         return {
@@ -261,7 +280,8 @@ async def ask_question_route(request: Request, payload: AskRequest):
             doc_data['vector_store'],
             doc_data['chunks'],
             doc_data['doc_info'],
-            question
+            question,
+            doc_data['session_id']
         )
 
         return {
@@ -291,7 +311,8 @@ async def summary(request: Request):
             get_summary,
             doc_data['vector_store'],
             doc_data['chunks'],
-            doc_data['doc_info']
+            doc_data['doc_info'],
+            doc_data['session_id']
         )
 
         return {
@@ -321,7 +342,8 @@ async def risks(request: Request):
             get_risk_analysis,
             doc_data['vector_store'],
             doc_data['chunks'],
-            doc_data['doc_info']
+            doc_data['doc_info'],
+            doc_data['session_id']
         )
 
         return {
@@ -351,7 +373,8 @@ async def keypoints(request: Request):
             get_key_points,
             doc_data['vector_store'],
             doc_data['chunks'],
-            doc_data['doc_info']
+            doc_data['doc_info'],
+            doc_data['session_id']
         )
 
         return {

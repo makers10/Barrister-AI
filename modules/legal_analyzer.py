@@ -81,7 +81,7 @@ def _invoke_llm_with_fallback(prompt_template: ChatPromptTemplate, variables: Di
 
 # ==================== Document Processing ====================
 
-def process_pdf(pdf_path: str) -> Dict:
+def process_pdf(pdf_path: str, session_id: str) -> Dict:
     """
     Process a legal PDF document.
     
@@ -116,16 +116,8 @@ def process_pdf(pdf_path: str) -> Dict:
                 'error': 'Failed to create document chunks. The PDF may not contain readable text.'
             }
 
-        # Step 4: Create vector store
-        cache_path = f"{os.path.basename(pdf_path)}.pkl"
-        # Clear old cache
-        if os.path.exists(cache_path):
-            try:
-                os.remove(cache_path)
-            except Exception:
-                pass
-
-        vector_store = create_vector_store(chunks, cache_path=cache_path)
+        # Step 4: Create Supabase pgvector store
+        vector_store = create_vector_store(chunks, session_id=session_id)
 
         if not vector_store:
             return {
@@ -152,7 +144,7 @@ def process_pdf(pdf_path: str) -> Dict:
 
 # ==================== Analysis Functions ====================
 
-def full_analysis(vector_store, chunks: List[Dict], doc_info: Dict) -> Dict:
+def full_analysis(vector_store, chunks: List[Dict], doc_info: Dict, session_id: str) -> Dict:
     """
     Perform comprehensive legal analysis.
     
@@ -167,7 +159,7 @@ def full_analysis(vector_store, chunks: List[Dict], doc_info: Dict) -> Dict:
     - Suggestions
     """
     # Retrieve broad context (use more chunks for full analysis)
-    all_results = search_vector_store(vector_store, "legal terms obligations rights", top_k=10)
+    all_results = search_vector_store(vector_store, "legal terms obligations rights", session_id=session_id, top_k=10)
     docs = rerank_legal_contexts("legal terms obligations rights conditions", all_results)
     docs = expand_page_context(docs, chunks)
     context, sources = build_legal_context(docs, chunks)
@@ -205,7 +197,8 @@ def ask_question(
     vector_store,
     chunks: List[Dict],
     doc_info: Dict,
-    question: str
+    question: str,
+    session_id: str
 ) -> Dict:
     """
     Answer a specific legal question about the document.
@@ -214,7 +207,7 @@ def ask_question(
     enhanced_query = enhance_legal_query(question)
 
     # Search
-    results = search_vector_store(vector_store, enhanced_query, top_k=6)
+    results = search_vector_store(vector_store, enhanced_query, session_id=session_id, top_k=6)
 
     # Rerank with legal awareness
     docs = rerank_legal_contexts(enhanced_query, results)
@@ -242,9 +235,9 @@ def ask_question(
     }
 
 
-def get_summary(vector_store, chunks: List[Dict], doc_info: Dict) -> Dict:
+def get_summary(vector_store, chunks: List[Dict], doc_info: Dict, session_id: str) -> Dict:
     """Generate a structured summary of the document."""
-    results = search_vector_store(vector_store, "summary overview purpose scope", top_k=8)
+    results = search_vector_store(vector_store, "summary overview purpose scope", session_id=session_id, top_k=8)
     docs = rerank_legal_contexts("summary overview purpose", results)
     docs = expand_page_context(docs, chunks)
     context, sources = build_legal_context(docs, chunks)
@@ -267,11 +260,12 @@ def get_summary(vector_store, chunks: List[Dict], doc_info: Dict) -> Dict:
     }
 
 
-def get_risk_analysis(vector_store, chunks: List[Dict], doc_info: Dict) -> Dict:
+def get_risk_analysis(vector_store, chunks: List[Dict], doc_info: Dict, session_id: str) -> Dict:
     """Perform risk and red flag analysis."""
     results = search_vector_store(
         vector_store,
         "liability risk penalty termination breach indemnify limitation",
+        session_id=session_id,
         top_k=8
     )
     docs = rerank_legal_contexts("risk liability termination breach penalty", results)
@@ -292,11 +286,12 @@ def get_risk_analysis(vector_store, chunks: List[Dict], doc_info: Dict) -> Dict:
     }
 
 
-def get_key_points(vector_store, chunks: List[Dict], doc_info: Dict) -> Dict:
+def get_key_points(vector_store, chunks: List[Dict], doc_info: Dict, session_id: str) -> Dict:
     """Extract key points from the document."""
     results = search_vector_store(
         vector_store,
         "obligations rights payment deadline penalty condition",
+        session_id=session_id,
         top_k=8
     )
     docs = rerank_legal_contexts("obligations rights terms conditions", results)
