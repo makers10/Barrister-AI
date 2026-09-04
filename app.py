@@ -26,6 +26,7 @@ if sys.platform == "win32":
 
 # pyrefly: ignore [missing-import]
 from fastapi import FastAPI, Request, UploadFile, File, HTTPException
+# pyrefly: ignore [missing-import]
 from fastapi.concurrency import run_in_threadpool
 # pyrefly: ignore [missing-import]
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -133,52 +134,51 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
         logger.info(f"📄 Processing uploaded file: {filename}")
 
         tmp_filepath = None
-        try:
-            # Import here to avoid circular imports and slow startup
-            from modules.legal_analyzer import process_pdf
-            
-            # Write to temporary file for PDF processing
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-                tmp.write(file_bytes)
-                tmp_filepath = tmp.name
+        # Import here to avoid circular imports and slow startup
+        from modules.legal_analyzer import process_pdf
+        
+        # Write to temporary file for PDF processing
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+            tmp.write(file_bytes)
+            tmp_filepath = tmp.name
 
-            # Process the PDF in a threadpool to avoid blocking
-            result = await run_in_threadpool(process_pdf, tmp_filepath, session_id)
+        # Process the PDF in a threadpool to avoid blocking
+        result = await run_in_threadpool(process_pdf, tmp_filepath, session_id)
 
-            if not result['success']:
-                raise HTTPException(status_code=500, detail=result['error'])
+        if not result['success']:
+            raise HTTPException(status_code=500, detail=result['error'])
 
-            # Store session ID
-            request.session['session_id'] = session_id
-            request.session['current_pdf'] = filepath
-            request.session['current_filename'] = filename
+        # Store session ID
+        request.session['session_id'] = session_id
+        request.session['current_pdf'] = filepath
+        request.session['current_filename'] = filename
 
-            # Upsert session data to Supabase with completed status
-            supabase.table('document_sessions').upsert({
-                'session_id': session_id,
-                'filename': filename,
-                'filepath': filepath,
-                'doc_info': result['doc_info'],
-                'pages_data': result['pages_data'],
-                'chunks': result['chunks'],
-                'status': 'completed'
-            }).execute()
-            logger.info(f"✅ Session {session_id} saved to Supabase")
+        # Upsert session data to Supabase with completed status
+        supabase.table('document_sessions').upsert({
+            'session_id': session_id,
+            'filename': filename,
+            'filepath': filepath,
+            'doc_info': result['doc_info'],
+            'pages_data': result['pages_data'],
+            'chunks': result['chunks'],
+            'status': 'completed'
+        }).execute()
+        logger.info(f"✅ Session {session_id} saved to Supabase")
 
-            doc_info = result['doc_info']
-            detected_types = doc_info.get('detected_types', [])
+        doc_info = result['doc_info']
+        detected_types = doc_info.get('detected_types', [])
 
-            return {
-                'success': True,
-                'message': f'Legal document processed successfully',
-                'filename': filename,
-                'doc_info': {
-                    'total_pages': doc_info['total_pages'],
-                    'total_sections': doc_info['total_sections'],
-                    'detected_types': detected_types,
-                    'total_characters': doc_info['total_characters']
-                }
+        return {
+            'success': True,
+            'message': f'Legal document processed successfully',
+            'filename': filename,
+            'doc_info': {
+                'total_pages': doc_info['total_pages'],
+                'total_sections': doc_info['total_sections'],
+                'detected_types': detected_types,
+                'total_characters': doc_info['total_characters']
             }
+        }
 
     except Exception as e:
         if supabase:
