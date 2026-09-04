@@ -25,6 +25,7 @@ if sys.platform == "win32":
 
 # pyrefly: ignore [missing-import]
 from fastapi import FastAPI, Request, UploadFile, File, HTTPException
+from fastapi.concurrency import run_in_threadpool
 # pyrefly: ignore [missing-import]
 from fastapi.responses import JSONResponse, HTMLResponse
 # pyrefly: ignore [missing-import]
@@ -126,8 +127,8 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
             # Import here to avoid circular imports and slow startup
             from modules.legal_analyzer import process_pdf
 
-            # Process the PDF
-            result = process_pdf(filepath)
+            # Process the PDF in a threadpool to avoid blocking
+            result = await run_in_threadpool(process_pdf, filepath)
 
             if not result['success']:
                 raise HTTPException(status_code=500, detail=result['error'])
@@ -216,7 +217,8 @@ async def analyze(request: Request):
 
         from modules.legal_analyzer import full_analysis
 
-        result = full_analysis(
+        result = await run_in_threadpool(
+            full_analysis,
             doc_data['vector_store'],
             doc_data['chunks'],
             doc_data['doc_info']
@@ -254,7 +256,8 @@ async def ask_question_route(request: Request, payload: AskRequest):
 
         from modules.legal_analyzer import ask_question
 
-        result = ask_question(
+        result = await run_in_threadpool(
+            ask_question,
             doc_data['vector_store'],
             doc_data['chunks'],
             doc_data['doc_info'],
@@ -284,7 +287,8 @@ async def summary(request: Request):
 
         from modules.legal_analyzer import get_summary
 
-        result = get_summary(
+        result = await run_in_threadpool(
+            get_summary,
             doc_data['vector_store'],
             doc_data['chunks'],
             doc_data['doc_info']
@@ -313,7 +317,8 @@ async def risks(request: Request):
 
         from modules.legal_analyzer import get_risk_analysis
 
-        result = get_risk_analysis(
+        result = await run_in_threadpool(
+            get_risk_analysis,
             doc_data['vector_store'],
             doc_data['chunks'],
             doc_data['doc_info']
@@ -342,7 +347,8 @@ async def keypoints(request: Request):
 
         from modules.legal_analyzer import get_key_points
 
-        result = get_key_points(
+        result = await run_in_threadpool(
+            get_key_points,
             doc_data['vector_store'],
             doc_data['chunks'],
             doc_data['doc_info']
