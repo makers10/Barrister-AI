@@ -32,6 +32,7 @@ from fastapi.staticfiles import StaticFiles
 # pyrefly: ignore [missing-import]
 from fastapi.templating import Jinja2Templates
 # pyrefly: ignore [missing-import]
+# pyrefly: ignore [missing-import]
 from starlette.middleware.sessions import SessionMiddleware
 # pyrefly: ignore [missing-import]
 from pydantic import BaseModel
@@ -39,8 +40,21 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 # pyrefly: ignore [missing-import]
 import uvicorn
+import pickle
 
 load_dotenv()
+
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+supabase: 'Client' = None
+
+try:
+    # pyrefly: ignore [missing-import]
+    from supabase import create_client, Client
+    if SUPABASE_URL and SUPABASE_KEY and SUPABASE_KEY != 'your_supabase_anon_or_service_role_key':
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+except ImportError:
+    pass
 
 # Setup logging
 logging.basicConfig(
