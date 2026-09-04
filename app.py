@@ -74,11 +74,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# In-memory store for processed documents (per session)
-document_store = {}
-
-# Per-session processing lock: set of session_ids currently being processed
-processing_sessions = set()
+# State is completely distributed via Supabase
 
 
 @app.get('/', response_class=HTMLResponse)
@@ -102,12 +98,21 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
         # Determine session_id early so we can check the lock before doing any work
         session_id = request.session.get('session_id', secrets.token_hex(8))
 
-        # Reject if this session already has an upload/analysis in flight
-        if session_id in processing_sessions:
+        if not supabase:
+            raise HTTPException(status_code=500, detail="Supabase is not configured. Cannot process uploads.")
+
+        # Check distributed lock in Supabase
+        response = supabase.table('document_sessions').select('status').eq('session_id', session_id).execute()
+        if response.data and response.data[0].get('status') == 'processing':
             raise HTTPException(status_code=429, detail="Please wait — a document is already being processed.")
 
-        # Acquire the processing lock for this session
-        processing_sessions.add(session_id)
+        # Acquire lock
+        supabase.table('document_sessions').upsert({
+            'session_id': session_id,
+            'filename': file.filename,
+            'filepath': os.path.join(UPLOAD_FOLDER, file.filename),
+            'status': 'processing'
+        }).execute()
 
         filename = file.filename
         filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -127,36 +132,22 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
             if not result['success']:
                 raise HTTPException(status_code=500, detail=result['error'])
 
-            # Store in memory with session ID
+            # Store session ID
             request.session['session_id'] = session_id
             request.session['current_pdf'] = filepath
             request.session['current_filename'] = filename
 
-            document_data = {
-                'filepath': filepath,
+            # Upsert session data to Supabase with completed status
+            supabase.table('document_sessions').upsert({
+                'session_id': session_id,
                 'filename': filename,
+                'filepath': filepath,
+                'doc_info': result['doc_info'],
                 'pages_data': result['pages_data'],
                 'chunks': result['chunks'],
-                'doc_info': result['doc_info']
-            }
-
-            if supabase:
-                try:
-                    # Upsert session data to Supabase
-                    supabase.table('document_sessions').upsert({
-                        'session_id': session_id,
-                        'filename': filename,
-                        'filepath': filepath,
-                        'doc_info': result['doc_info'],
-                        'pages_data': result['pages_data'],
-                        'chunks': result['chunks']
-                    }).execute()
-                    logger.info(f"✅ Session {session_id} saved to Supabase")
-                except Exception as e:
-                    logger.error(f"❌ Supabase insert failed: {e}")
-                    document_store[session_id] = document_data
-            else:
-                document_store[session_id] = document_data
+                'status': 'completed'
+            }).execute()
+            logger.info(f"✅ Session {session_id} saved to Supabase")
 
             doc_info = result['doc_info']
             detected_types = doc_info.get('detected_types', [])
@@ -173,13 +164,12 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
                 }
             }
 
-        finally:
-            # Always release the lock when upload+processing is done
-            processing_sessions.discard(session_id)
-
-    except HTTPException:
-        raise
     except Exception as e:
+        if supabase:
+            # Delete lock on failure so user isn't stuck
+            supabase.table('document_sessions').delete().eq('session_id', session_id).execute()
+        if isinstance(e, HTTPException):
+            raise
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f'Server error: {str(e)}')
 
@@ -200,10 +190,7 @@ def _get_document_data(request: Request):
             logger.error(f"❌ Failed to fetch session from Supabase: {e}")
             
     if not doc_data:
-        # Fallback to in-memory if Supabase not configured or failed
-        if session_id not in document_store:
-            return None
-        doc_data = document_store[session_id]
+        return None
 
     # Reconstruct vector_store from cached .pkl file
     if 'vector_store' not in doc_data:
