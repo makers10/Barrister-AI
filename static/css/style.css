@@ -7,35 +7,35 @@
 
 /* ======= Professional Design Tokens ======= */
 :root {
-    /* Core Palette: Deep Midnight & Heritage Gold */
-    --clr-navy-deep: #05080f;
-    --clr-navy-main: #0a0e1a;
-    --clr-navy-light: #121829;
-    --clr-slate-main: #1f2937;
-    --clr-slate-light: #374151;
+    /* Core Palette: Monochrome */
+    --clr-navy-deep: #000000;
+    --clr-navy-main: #0a0a0a;
+    --clr-navy-light: #1a1a1a;
+    --clr-slate-main: #262626;
+    --clr-slate-light: #404040;
     
-    --clr-gold: #c5a059;
-    --clr-gold-light: #e6d5b8;
-    --clr-gold-dark: #8e6c2f;
-    --clr-gold-soft: rgba(197, 160, 89, 0.1);
-    --clr-gold-glow: rgba(197, 160, 89, 0.2);
+    --clr-gold: #ffffff;
+    --clr-gold-light: #f5f5f5;
+    --clr-gold-dark: #a3a3a3;
+    --clr-gold-soft: rgba(255, 255, 255, 0.1);
+    --clr-gold-glow: rgba(255, 255, 255, 0.2);
 
     /* Text */
-    --txt-heading: #f9fafb;
-    --txt-body: #d1d5db;
-    --txt-muted: #9ca3af;
-    --txt-accent: #c5a059;
+    --txt-heading: #ffffff;
+    --txt-body: #d4d4d4;
+    --txt-muted: #8c8c8c;
+    --txt-accent: #ffffff;
 
     /* Status */
-    --clr-success: #10b981;
-    --clr-danger: #ef4444;
-    --clr-warning: #f59e0b;
-    --clr-info: #3b82f6;
+    --clr-success: #ffffff;
+    --clr-danger: #8c8c8c;
+    --clr-warning: #a3a3a3;
+    --clr-info: #d4d4d4;
 
     /* Components */
-    --bg-glass: rgba(15, 23, 42, 0.85);
-    --border: rgba(255, 255, 255, 0.08);
-    --border-gold: rgba(197, 160, 89, 0.2);
+    --bg-glass: rgba(0, 0, 0, 0.85);
+    --border: rgba(255, 255, 255, 0.15);
+    --border-gold: rgba(255, 255, 255, 0.3);
     
     /* Layout */
     --sidebar-width: 280px;
@@ -525,4 +525,92 @@ body::before {
     .sidebar.open { transform: translateX(0); }
     .top-nav { padding: 0 1rem; }
     .workspace { padding: 1rem; }
+}
+
+/* ======= Accessibility ======= */
+
+/* Screen-reader only utility — visually hidden but readable by assistive technology */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Visible focus ring for keyboard navigation */
+:focus-visible {
+    outline: 2px solid var(--clr-gold);
+    outline-offset: 3px;
+    border-radius: var(--radius-sm);
+}
+
+/* Upload area keyboard focus state */
+.pro-upload:focus-visible {
+    outline: 2px solid var(--clr-gold);
+    outline-offset: 4px;
+}
+
+/* ======= AI Disclaimer ======= */
+.chat-disclaimer {
+    padding: 0.6rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-top: 1px solid var(--border);
+    font-size: 0.75rem;
+    color: var(--txt-muted);
+    line-height: 1.4;
+    text-align: center;
+}
+
+/* ======= Legal Footer ======= */
+.legal-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.9);
+    border-top: 1px solid var(--border);
+    padding: 0.5rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: 0.72rem;
+    color: var(--txt-muted);
+    z-index: 200;
+    backdrop-filter: blur(10px);
+    flex-wrap: wrap;
+}
+
+.legal-footer nav {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.legal-footer a {
+    color: var(--txt-muted);
+    text-decoration: none;
+}
+
+.legal-footer a:hover,
+.legal-footer a:focus-visible {
+    color: var(--txt-heading);
+    text-decoration: underline;
+}
+
+.legal-footer p {
+    color: var(--txt-muted);
+    font-size: 0.72rem;
+    margin: 0;
+}
+
+/* Offset workspace content so footer doesn't cover it */
+.app-layout {
+    padding-bottom: 36px;
 }

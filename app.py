@@ -81,7 +81,27 @@ templates = Jinja2Templates(directory="templates")
 
 @app.get('/', response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request, "index.html")
+
+
+@app.get('/privacy-policy', response_class=HTMLResponse)
+async def privacy_policy(request: Request):
+    return templates.TemplateResponse(request, "privacy-policy.html")
+
+
+@app.get('/terms', response_class=HTMLResponse)
+async def terms(request: Request):
+    return templates.TemplateResponse(request, "terms.html")
+
+
+@app.get('/cookies', response_class=HTMLResponse)
+async def cookies(request: Request):
+    return templates.TemplateResponse(request, "cookies.html")
+
+
+@app.get('/refund-policy', response_class=HTMLResponse)
+async def refund_policy(request: Request):
+    return templates.TemplateResponse(request, "refund-policy.html")
 
 
 @app.post('/upload')
@@ -131,7 +151,7 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to upload to cloud storage: {str(e)}")
 
-        logger.info(f"📄 Processing uploaded file: {filename}")
+        logger.info(f" Processing uploaded file: {filename}")
 
         tmp_filepath = None
         # Import here to avoid circular imports and slow startup
@@ -163,7 +183,7 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
             'chunks': result['chunks'],
             'status': 'completed'
         }).execute()
-        logger.info(f"✅ Session {session_id} saved to Supabase")
+        logger.info(f" Session {session_id} saved to Supabase")
 
         doc_info = result['doc_info']
         detected_types = doc_info.get('detected_types', [])
@@ -209,7 +229,7 @@ def _get_document_data(request: Request):
             if response.data and len(response.data) > 0:
                 doc_data = response.data[0]
         except Exception as e:
-            logger.error(f"❌ Failed to fetch session from Supabase: {e}")
+            logger.error(f" Failed to fetch session from Supabase: {e}")
             
     if not doc_data:
         return None
@@ -219,7 +239,7 @@ def _get_document_data(request: Request):
         from modules.vector_store import get_vector_store
         doc_data['vector_store'] = get_vector_store()
         if not doc_data['vector_store']:
-            logger.error("❌ Failed to initialize Supabase vector store")
+            logger.error(" Failed to initialize Supabase vector store")
             return None
 
     return doc_data
@@ -394,4 +414,4 @@ if __name__ == '__main__':
     port = int(os.getenv('FLASK_PORT', 5000))
     debug = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
     logger.info(f"⚖️ Barrister AI starting on port {port} with FastAPI...")
-    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=debug)
+    uvicorn.run("app:app", host="127.0.0.1", port=port, reload=debug)
