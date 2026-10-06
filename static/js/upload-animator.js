@@ -41,14 +41,10 @@ const UploadAnimator = (() => {
   }
 
   /* ─────────────────────────────────────────────
-     Ease functions
+     Ease functions (used by counter animations in script.js)
   ───────────────────────────────────────────── */
   function easeOutExpo(t) {
     return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
-  }
-
-  function easeInOutSine(t) {
-    return -(Math.cos(Math.PI * t) - 1) / 2;
   }
 
   /* ─────────────────────────────────────────────
@@ -184,19 +180,14 @@ const UploadAnimator = (() => {
   /* ─────────────────────────────────────────────
      UPLOADING PHASE ANIMATIONS
 
-     Three concurrent loops:
-       1. docFloat  — document card gently bobs up/down (sine wave)
-       2. scanBeam  — scanning line interpolates top→bottom, loops
-       3. shimmer   — progress bar shimmer position advances
+     Four concurrent loops:
+       1. upload-float  — document card gently bobs up/down
+       2. upload-scan   — scanning beam travels top → bottom, loops
+       3. upload-shimmer — progress bar shimmer sweeps continuously
+       4. upload-dots   — thinking dots pulse with stagger
 
-     All three write only transform/opacity.
+     All loops write only transform/opacity.
   ───────────────────────────────────────────── */
-
-  // Internal state for uploading animations
-  let scanT      = 0;   // 0–1 normalised scan position
-  let scanSpeed  = 0.3; // units per second (fraction of height)
-  let shimmerX   = -100; // % offset of the shimmer
-
   function startUploading(container) {
     if (!container) return;
 
