@@ -82,12 +82,12 @@
                              aria-label="Upload a PDF document for analysis. Click or drag and drop."
                              onclick="if(!isProcessing) document.getElementById('fileInput').click()"
                              onkeydown="if(!isProcessing && (event.key==='Enter'||event.key===' ')){event.preventDefault();document.getElementById('fileInput').click();}">
-                            <span class="icon" aria-hidden="true"><i class="fas fa-scale-balanced"></i></span>
+                            <span class="upload-icon" aria-hidden="true"><i class="fas fa-scale-balanced"></i></span>
                             <h3>Begin Document Analysis</h3>
                             <p>Upload a legal PDF document to initialize the intelligence engine</p>
+                            <span class="upload-drop-msg" aria-hidden="true">Drop document to analyze</span>
                             <input type="file" id="fileInput" accept=".pdf" hidden aria-label="Select PDF file">
                             <div id="uploadStatus" class="upload-status" role="status" aria-live="polite"></div>
-                            <div id="scanner" class="scanner-line" style="display: none;" aria-hidden="true"></div>
                         </div>
 
                         <!-- Analysis Insights (Hidden until upload) -->

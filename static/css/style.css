@@ -614,3 +614,771 @@ body::before {
 .app-layout {
     padding-bottom: 36px;
 }
+
+
+/* ============================================================
+   PREMIUM UPLOAD / PROCESSING EXPERIENCE
+   All additions below — existing styles above are untouched.
+   ============================================================ */
+
+/* ── Drag-over active state (was toggled in JS but had no CSS) ── */
+.pro-upload.active {
+    border-color: var(--clr-gold);
+    background: rgba(255, 255, 255, 0.04);
+    transform: scale(1.015);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.12), 0 0 32px rgba(255,255,255,0.06);
+}
+
+.pro-upload.active .upload-icon {
+    transform: translateY(-6px);
+}
+
+.pro-upload.active .upload-drop-msg {
+    display: block;
+}
+
+.pro-upload .upload-drop-msg {
+    display: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--clr-gold-light);
+    margin-top: 0.5rem;
+    letter-spacing: 0.02em;
+}
+
+.pro-upload .upload-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    display: block;
+    opacity: 0.8;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Sidebar ready / processing states ── */
+.nav-item.ready {
+    color: var(--txt-body);
+    opacity: 1;
+}
+
+.nav-item.ready:not(:disabled) {
+    cursor: pointer;
+}
+
+.nav-item.processing {
+    border-left: 2px solid rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.04);
+    color: var(--txt-heading);
+}
+
+/* ── Upload Phase Container ── */
+/* Wraps the .pro-card.hero content during upload phases */
+.upload-phase {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+/* ── Phase: Uploading ── */
+.upload-uploading {
+    padding: 2.5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    animation: phaseEnter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.upload-uploading__icon {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.upload-uploading__icon-inner {
+    font-size: 2.4rem;
+    color: var(--txt-heading);
+    animation: floatDoc 3s ease-in-out infinite;
+    position: relative;
+    z-index: 1;
+}
+
+.upload-uploading__icon-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.12);
+    animation: ringPulse 2.4s ease-out infinite;
+}
+
+.upload-uploading__icon-ring:nth-child(2) {
+    animation-delay: 0.8s;
+}
+
+.upload-uploading__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.upload-uploading__label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--txt-muted);
+}
+
+.upload-uploading__filename {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--txt-heading);
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.upload-uploading__filesize {
+    font-size: 0.82rem;
+    color: var(--txt-muted);
+}
+
+/* Indeterminate shimmer progress bar */
+.upload-progress {
+    width: 100%;
+    max-width: 440px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.upload-progress__track {
+    height: 4px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.upload-progress__fill {
+    position: absolute;
+    inset: 0;
+    border-radius: 4px;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255,255,255,0.25) 30%,
+        rgba(255,255,255,0.55) 50%,
+        rgba(255,255,255,0.25) 70%,
+        transparent 100%
+    );
+    background-size: 300% 100%;
+    animation: shimmerSlide 1.6s ease-in-out infinite;
+}
+
+.upload-progress__label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.upload-progress__text {
+    font-size: 0.78rem;
+    color: var(--txt-muted);
+}
+
+.upload-thinking {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.upload-thinking span {
+    width: 4px;
+    height: 4px;
+    background: var(--txt-muted);
+    border-radius: 50%;
+    animation: dotBounce 1.4s ease-in-out infinite both;
+}
+
+.upload-thinking span:nth-child(2) { animation-delay: 0.16s; }
+.upload-thinking span:nth-child(3) { animation-delay: 0.32s; }
+
+/* Document scan visual */
+.upload-doc-scan {
+    width: 180px;
+    height: 220px;
+    background: var(--clr-navy-light);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1rem;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    flex-shrink: 0;
+}
+
+.upload-doc-scan__corner {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+    border-top: 10px solid var(--clr-slate-light);
+    border-right: 10px solid var(--clr-slate-light);
+    border-radius: 0 4px 0 0;
+}
+
+.upload-doc-scan__line {
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.upload-doc-scan__line:nth-child(2)  { width: 90%; }
+.upload-doc-scan__line:nth-child(3)  { width: 75%; }
+.upload-doc-scan__line:nth-child(4)  { width: 85%; }
+.upload-doc-scan__line:nth-child(5)  { width: 60%; }
+.upload-doc-scan__line:nth-child(6)  { width: 80%; }
+.upload-doc-scan__line:nth-child(7)  { width: 70%; }
+.upload-doc-scan__line:nth-child(8)  { width: 90%; }
+.upload-doc-scan__line:nth-child(9)  { width: 55%; }
+.upload-doc-scan__line:nth-child(10) { width: 82%; }
+.upload-doc-scan__line:nth-child(11) { width: 65%; }
+.upload-doc-scan__line:nth-child(12) { width: 78%; }
+
+.upload-doc-scan__beam {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 18px;
+    background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        rgba(255,255,255,0.07) 40%,
+        rgba(255,255,255,0.11) 50%,
+        rgba(255,255,255,0.07) 60%,
+        transparent 100%
+    );
+    animation: scanBeam 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    pointer-events: none;
+}
+
+/* ── Phase: Complete / Indexed ── */
+.upload-complete {
+    padding: 2.5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    animation: phaseEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.upload-complete__check {
+    width: 64px;
+    height: 64px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: var(--txt-heading);
+    animation: checkPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    flex-shrink: 0;
+}
+
+.upload-complete__title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--txt-heading);
+    margin: 0;
+}
+
+.upload-complete__subtitle {
+    font-size: 0.85rem;
+    color: var(--txt-muted);
+    margin-top: -0.75rem;
+}
+
+/* Animated stats inside complete phase */
+.upload-complete__stats {
+    display: flex;
+    gap: 2.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.upload-complete__stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    opacity: 0;
+    transform: translateY(12px);
+    /* JS adds .stat-visible class */
+}
+
+.upload-complete__stat.stat-visible {
+    animation: statReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.upload-complete__stat-value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--txt-heading);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.upload-complete__stat-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--txt-muted);
+}
+
+/* ── Intelligence Workspace entrance ── */
+.intelligence-enter {
+    animation: phaseEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Staggered sidebar item entrance */
+.nav-item.nav-animate-in {
+    animation: navSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Report card — better entrance (replaces old slideUp) */
+.report-card {
+    animation: reportEnter 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Polished hover state for analysis buttons */
+.nav-item:not(:disabled):not(.active):hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--txt-heading);
+    transform: translateX(2px);
+}
+
+/* Button micro-interactions */
+.btn-icon {
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), filter 0.15s ease;
+}
+
+.btn-icon:hover:not(:disabled) {
+    transform: scale(1.06);
+    filter: brightness(1.1);
+}
+
+.btn-icon:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+/* Nav item active tap feedback */
+.nav-item:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+/* ── Keyframes ── */
+
+@keyframes phaseEnter {
+    from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.99);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes floatDoc {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-7px); }
+}
+
+@keyframes ringPulse {
+    0%   { transform: scale(0.85); opacity: 0.5; }
+    60%  { transform: scale(1.5);  opacity: 0; }
+    100% { transform: scale(1.5);  opacity: 0; }
+}
+
+@keyframes shimmerSlide {
+    0%   { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}
+
+@keyframes dotBounce {
+    0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+    40%           { transform: scale(1.2); opacity: 1;   }
+}
+
+@keyframes scanBeam {
+    0%   { top: -18px; }
+    100% { top: 100%;  }
+}
+
+@keyframes checkPop {
+    0%   { transform: scale(0.4); opacity: 0; }
+    60%  { transform: scale(1.15); }
+    80%  { transform: scale(0.96); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes statReveal {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes navSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes reportEnter {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── prefers-reduced-motion: strip all custom animations ── */
+@media (prefers-reduced-motion: reduce) {
+    .pro-upload.active {
+        transform: none;
+    }
+    .upload-uploading,
+    .upload-complete,
+    .intelligence-enter {
+        animation: none;
+        opacity: 1;
+        transform: none;
+    }
+    .upload-uploading__icon-inner {
+        animation: none;
+    }
+    .upload-uploading__icon-ring {
+        animation: none;
+    }
+    .upload-progress__fill {
+        animation: none;
+        background: rgba(255,255,255,0.3);
+        width: 100%;
+        position: absolute;
+    }
+    .upload-thinking span {
+        animation: none;
+        opacity: 0.6;
+    }
+    .upload-doc-scan__beam {
+        animation: none;
+        display: none;
+    }
+    .upload-complete__check {
+        animation: none;
+    }
+    .upload-complete__stat {
+        opacity: 1;
+        transform: none;
+    }
+    .upload-complete__stat.stat-visible {
+        animation: none;
+    }
+    .nav-item.nav-animate-in {
+        animation: none;
+    }
+    .report-card {
+        animation: none;
+    }
+    .nav-item:not(:disabled):not(.active):hover {
+        transform: none;
+    }
+}
+
+/* ============================================================
+   UPLOAD STATE MACHINE — Error / Timeout / Retry States
+   ============================================================ */
+
+/* ── Upload status text (was referenced in JS, never styled) ── */
+.upload-status {
+    display: none;
+    font-size: 0.85rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.85rem;
+    border-radius: var(--radius-sm);
+    line-height: 1.4;
+}
+
+.upload-status.loading {
+    color: var(--txt-muted);
+}
+
+.upload-status.success {
+    color: var(--clr-success);
+}
+
+.upload-status.error {
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.08);
+    border: 1px solid rgba(248, 113, 113, 0.2);
+}
+
+/* ── Upload validation error (inline, above the browse text) ── */
+.upload-validation-msg {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding: 0.65rem 0.9rem;
+    background: rgba(248, 113, 113, 0.08);
+    border: 1px solid rgba(248, 113, 113, 0.2);
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    color: #f87171;
+    max-width: 480px;
+    text-align: left;
+    animation: phaseEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.upload-validation-msg i {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* ── Slow-upload warning banner (injected into upload-uploading) ── */
+.upload-slow-warning {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.9rem;
+    background: rgba(251, 191, 36, 0.08);
+    border: 1px solid rgba(251, 191, 36, 0.2);
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    color: #fbbf24;
+    max-width: 440px;
+    animation: phaseEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.upload-slow-warning i {
+    flex-shrink: 0;
+}
+
+/* ── Error phase ── */
+.upload-error {
+    padding: 2.5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    animation: phaseEnter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+    max-width: 480px;
+    text-align: center;
+}
+
+.upload-error__icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(248, 113, 113, 0.08);
+    border: 1px solid rgba(248, 113, 113, 0.25);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    color: #f87171;
+    animation: checkPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    flex-shrink: 0;
+}
+
+.upload-error__title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--txt-heading);
+    margin: 0;
+}
+
+.upload-error__message {
+    font-size: 0.875rem;
+    color: var(--txt-muted);
+    line-height: 1.6;
+    margin: 0;
+    max-width: 360px;
+}
+
+.upload-error__detail {
+    font-size: 0.78rem;
+    color: rgba(248, 113, 113, 0.7);
+    background: rgba(248, 113, 113, 0.06);
+    border: 1px solid rgba(248, 113, 113, 0.15);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.85rem;
+    max-width: 400px;
+    word-break: break-word;
+}
+
+.upload-error__actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+/* ── Timeout phase ── */
+.upload-timeout {
+    padding: 2.5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    animation: phaseEnter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+    max-width: 480px;
+    text-align: center;
+}
+
+.upload-timeout__icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(251, 191, 36, 0.08);
+    border: 1px solid rgba(251, 191, 36, 0.25);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    color: #fbbf24;
+    animation: checkPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    flex-shrink: 0;
+}
+
+.upload-timeout__title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--txt-heading);
+    margin: 0;
+}
+
+.upload-timeout__message {
+    font-size: 0.875rem;
+    color: var(--txt-muted);
+    line-height: 1.6;
+    margin: 0;
+    max-width: 360px;
+}
+
+.upload-timeout__actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+/* ── Shared retry/action buttons ── */
+.upload-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.7rem 1.4rem;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    text-decoration: none;
+}
+
+.upload-btn:focus-visible {
+    outline: 2px solid var(--clr-gold);
+    outline-offset: 3px;
+}
+
+.upload-btn--primary {
+    background: #ffffff;
+    color: #000000;
+    border-color: #ffffff;
+}
+
+.upload-btn--primary:hover {
+    background: #e5e5e5;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(255, 255, 255, 0.12);
+}
+
+.upload-btn--primary:active {
+    transform: scale(0.97);
+}
+
+.upload-btn--ghost {
+    background: transparent;
+    color: var(--txt-muted);
+    border-color: var(--border);
+}
+
+.upload-btn--ghost:hover {
+    color: var(--txt-heading);
+    border-color: rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.04);
+}
+
+.upload-btn--ghost:active {
+    transform: scale(0.97);
+}
+
+/* ── Slow-upload progress text update ── */
+.upload-progress__text.slow {
+    color: #fbbf24;
+}
+
+/* ── Reduced motion: error/timeout icons skip pop animation ── */
+@media (prefers-reduced-motion: reduce) {
+    .upload-error__icon,
+    .upload-timeout__icon {
+        animation: none;
+    }
+    .upload-error,
+    .upload-timeout {
+        animation: none;
+        opacity: 1;
+        transform: none;
+    }
+    .upload-validation-msg,
+    .upload-slow-warning {
+        animation: none;
+    }
+}
