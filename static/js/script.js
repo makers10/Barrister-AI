@@ -269,6 +269,7 @@ function transitionToSuccess(docInfo, filename, navAI) {
 /**
  * Renders the animated uploading state inside the hero card.
  * Only called after a real file has been selected and validated.
+ * Uses ua-* classes so UploadAnimator can target elements by stable selectors.
  */
 function showUploadingPhase(file) {
     const hero = document.querySelector('#uploadSection .pro-card.hero');
@@ -276,6 +277,7 @@ function showUploadingPhase(file) {
 
     const sizeStr = formatFileSize(file.size);
 
+    // 12 text lines inside the document card visual
     let linesHTML = '';
     for (let i = 0; i < 12; i++) {
         linesHTML += `<div class="upload-doc-scan__line" aria-hidden="true"></div>`;
@@ -283,10 +285,11 @@ function showUploadingPhase(file) {
 
     hero.innerHTML = `
         <div class="upload-uploading" id="uploadingPhase" role="status" aria-live="polite" aria-label="Uploading ${escapeHtml(file.name)}">
-            <div class="upload-doc-scan" aria-hidden="true">
+
+            <div class="upload-doc-scan ua-doc-card" aria-hidden="true">
                 <div class="upload-doc-scan__corner"></div>
                 ${linesHTML}
-                <div class="upload-doc-scan__beam"></div>
+                <div class="upload-doc-scan__beam ua-scan-line"></div>
             </div>
 
             <div class="upload-uploading__meta">
@@ -297,17 +300,31 @@ function showUploadingPhase(file) {
 
             <div class="upload-progress" aria-hidden="true">
                 <div class="upload-progress__track">
-                    <div class="upload-progress__fill"></div>
+                    <div class="upload-progress__fill ua-shimmer-track">
+                        <div class="upload-progress__shimmer ua-shimmer-fill"></div>
+                    </div>
                 </div>
                 <div class="upload-progress__label">
                     <span class="upload-progress__text" id="uploadProgressText">Transferring to intelligence engine</span>
-                    <span class="upload-thinking" aria-hidden="true">
-                        <span></span><span></span><span></span>
+                    <span class="upload-thinking ua-dots" aria-hidden="true">
+                        <span class="ua-dot"></span>
+                        <span class="ua-dot"></span>
+                        <span class="ua-dot"></span>
                     </span>
                 </div>
             </div>
+
         </div>
     `;
+
+    // Animate the phase entering, then start the continuous upload loops
+    const phase = document.getElementById('uploadingPhase');
+    phase.style.opacity   = '0';
+    phase.style.transform = 'translateY(20px) scale(0.97)';
+
+    UploadAnimator.playEnter(phase, () => {
+        UploadAnimator.startUploading(phase);
+    });
 }
 
 /**
