@@ -361,46 +361,68 @@ function showCompletePhase(docInfo, filename, onDone) {
     const hero = document.querySelector('#uploadSection .pro-card.hero');
     if (!hero) return;
 
-    hero.innerHTML = `
-        <div class="upload-complete" role="status" aria-live="assertive" aria-label="Document indexed successfully">
-            <div class="upload-complete__check" aria-hidden="true">
-                <i class="fas fa-check"></i>
+    // Stop all upload loops before DOM change
+    UploadAnimator.stopUploading();
+
+    const currentPhase = document.getElementById('uploadingPhase');
+
+    const buildComplete = () => {
+        hero.innerHTML = `
+            <div class="upload-complete" id="completePhase" role="status" aria-live="assertive" aria-label="Document indexed successfully">
+                <div class="upload-complete__check ua-check-circle" aria-hidden="true" style="opacity:0;transform:scale(0.3);">
+                    <i class="fas fa-check ua-check-icon" style="opacity:0;transform:scale(0)"></i>
+                </div>
+                <p class="upload-complete__title">Document Indexed</p>
+                <p class="upload-complete__subtitle">${escapeHtml(filename)} is ready for analysis</p>
+
+                <div class="upload-complete__stats" aria-label="Document statistics">
+                    <div class="upload-complete__stat" id="cstat-pages">
+                        <span class="upload-complete__stat-value" id="cstat-pages-val">0</span>
+                        <span class="upload-complete__stat-label">Pages</span>
+                    </div>
+                    <div class="upload-complete__stat" id="cstat-sections">
+                        <span class="upload-complete__stat-value" id="cstat-sections-val">0</span>
+                        <span class="upload-complete__stat-label">Sections</span>
+                    </div>
+                    <div class="upload-complete__stat" id="cstat-chars">
+                        <span class="upload-complete__stat-value" id="cstat-chars-val">0</span>
+                        <span class="upload-complete__stat-label">Characters</span>
+                    </div>
+                </div>
             </div>
-            <p class="upload-complete__title">Document Indexed</p>
-            <p class="upload-complete__subtitle">${escapeHtml(filename)} is ready for analysis</p>
+        `;
 
-            <div class="upload-complete__stats" aria-label="Document statistics">
-                <div class="upload-complete__stat" id="cstat-pages">
-                    <span class="upload-complete__stat-value" id="cstat-pages-val">0</span>
-                    <span class="upload-complete__stat-label">Pages</span>
-                </div>
-                <div class="upload-complete__stat" id="cstat-sections">
-                    <span class="upload-complete__stat-value" id="cstat-sections-val">0</span>
-                    <span class="upload-complete__stat-label">Sections</span>
-                </div>
-                <div class="upload-complete__stat" id="cstat-chars">
-                    <span class="upload-complete__stat-value" id="cstat-chars-val">0</span>
-                    <span class="upload-complete__stat-label">Characters</span>
-                </div>
-            </div>
-        </div>
-    `;
+        const completeEl = document.getElementById('completePhase');
 
-    // Staggered stat reveals — real values from docInfo
-    [
-        { id: 'cstat-pages',    valId: 'cstat-pages-val',    value: docInfo.total_pages       || 0, fmt: v => v,              delay: 120 },
-        { id: 'cstat-sections', valId: 'cstat-sections-val', value: docInfo.total_sections    || 0, fmt: v => v,              delay: 260 },
-        { id: 'cstat-chars',    valId: 'cstat-chars-val',    value: docInfo.total_characters  || 0, fmt: formatCharsCounter,  delay: 400 },
-    ].forEach(({ id, valId, value, fmt, delay }) => {
-        setTimeout(() => {
-            const stat  = document.getElementById(id);
-            const valEl = document.getElementById(valId);
-            if (stat)  stat.classList.add('stat-visible');
-            animateCounter(valEl, value, 900, fmt);
-        }, delay);
-    });
+        // Play the enter transition, then the checkmark spring animation
+        UploadAnimator.playEnter(completeEl, () => {
+            UploadAnimator.playSuccess(completeEl, () => {
+                // Stats reveal staggered — real backend values only
+                [
+                    { id: 'cstat-pages',    valId: 'cstat-pages-val',    value: docInfo.total_pages      || 0, fmt: v => v,             delay: 80  },
+                    { id: 'cstat-sections', valId: 'cstat-sections-val', value: docInfo.total_sections   || 0, fmt: v => v,             delay: 200 },
+                    { id: 'cstat-chars',    valId: 'cstat-chars-val',    value: docInfo.total_characters || 0, fmt: formatCharsCounter, delay: 320 },
+                ].forEach(({ id, valId, value, fmt, delay }) => {
+                    setTimeout(() => {
+                        const stat  = document.getElementById(id);
+                        const valEl = document.getElementById(valId);
+                        if (stat)  stat.classList.add('stat-visible');
+                        animateCounter(valEl, value, 900, fmt);
+                    }, delay);
+                });
 
-    setTimeout(onDone, 1900);
+                // Transition to workspace after stats have had time to read
+                setTimeout(onDone, 1600);
+            });
+        });
+    };
+
+    // If there's a running upload phase, exit it first for visual continuity
+    if (currentPhase) {
+        UploadAnimator.playExit(currentPhase, buildComplete);
+    } else {
+        buildComplete();
+    }
 }
 
 /**
@@ -412,41 +434,47 @@ function showErrorPhase(message, file) {
     const hero = document.querySelector('#uploadSection .pro-card.hero');
     if (!hero) return;
 
-    // Humanise the message slightly — strip technical fetch noise
+    UploadAnimator.stopUploading();
     const displayMsg = humaniseError(message);
 
-    hero.innerHTML = `
-        <div class="upload-error" role="alert" aria-label="Upload failed">
-            <div class="upload-error__icon" aria-hidden="true">
-                <i class="fas fa-xmark"></i>
+    const buildError = () => {
+        hero.innerHTML = `
+            <div class="upload-error" id="errorPhase" role="alert" aria-label="Upload failed">
+                <div class="upload-error__icon" aria-hidden="true">
+                    <i class="fas fa-xmark"></i>
+                </div>
+                <p class="upload-error__title">Upload Failed</p>
+                <p class="upload-error__message">Your document could not be uploaded to the intelligence engine.</p>
+                ${displayMsg ? `<p class="upload-error__detail" aria-live="polite">${escapeHtml(displayMsg)}</p>` : ''}
+                <div class="upload-error__actions">
+                    <button class="upload-btn upload-btn--primary" id="retryBtn" aria-label="Try uploading again">
+                        <i class="fas fa-arrow-rotate-right" aria-hidden="true"></i>
+                        Try Again
+                    </button>
+                    <button class="upload-btn upload-btn--ghost" id="cancelBtn" aria-label="Cancel and return to upload area">
+                        Cancel
+                    </button>
+                </div>
             </div>
-            <p class="upload-error__title">Upload Failed</p>
-            <p class="upload-error__message">Your document could not be uploaded to the intelligence engine.</p>
-            ${displayMsg ? `<p class="upload-error__detail" aria-live="polite">${escapeHtml(displayMsg)}</p>` : ''}
-            <div class="upload-error__actions">
-                <button class="upload-btn upload-btn--primary" id="retryBtn" aria-label="Try uploading again">
-                    <i class="fas fa-arrow-rotate-right" aria-hidden="true"></i>
-                    Try Again
-                </button>
-                <button class="upload-btn upload-btn--ghost" id="cancelBtn" aria-label="Cancel and return to upload area">
-                    Cancel
-                </button>
-            </div>
-        </div>
-    `;
+        `;
 
-    document.getElementById('retryBtn')?.addEventListener('click', () => {
-        restoreIdleState();
-        // If we still have the file reference, retry immediately
-        if (file) {
-            // Small delay so the idle state renders before we kick off again
-            setTimeout(() => handleUpload(file), 80);
-        }
-    });
+        const errorEl = document.getElementById('errorPhase');
+        UploadAnimator.playEnter(errorEl);
 
-    document.getElementById('cancelBtn')?.addEventListener('click', () => {
-        restoreIdleState();
-    });
+        document.getElementById('retryBtn')?.addEventListener('click', () => {
+            restoreIdleState();
+            if (file) setTimeout(() => handleUpload(file), 80);
+        });
+        document.getElementById('cancelBtn')?.addEventListener('click', restoreIdleState);
+    };
+
+    // Shake the current phase, then swap to error
+    const currentPhase = document.getElementById('uploadingPhase');
+    if (currentPhase) {
+        UploadAnimator.playError(currentPhase, buildError);
+    } else {
+        buildError();
+    }
 }
 
 /**
@@ -457,38 +485,47 @@ function showTimeoutPhase(file) {
     const hero = document.querySelector('#uploadSection .pro-card.hero');
     if (!hero) return;
 
-    hero.innerHTML = `
-        <div class="upload-timeout" role="alert" aria-label="Upload timed out">
-            <div class="upload-timeout__icon" aria-hidden="true">
-                <i class="fas fa-clock"></i>
-            </div>
-            <p class="upload-timeout__title">Upload Timed Out</p>
-            <p class="upload-timeout__message">
-                The request took too long and was stopped. This can happen with very large documents
-                or a slow connection. Your document was not uploaded.
-            </p>
-            <div class="upload-timeout__actions">
-                <button class="upload-btn upload-btn--primary" id="retryBtn" aria-label="Try uploading again">
-                    <i class="fas fa-arrow-rotate-right" aria-hidden="true"></i>
-                    Try Again
-                </button>
-                <button class="upload-btn upload-btn--ghost" id="cancelBtn" aria-label="Cancel and return to upload area">
-                    Cancel
-                </button>
-            </div>
-        </div>
-    `;
+    UploadAnimator.stopUploading();
 
-    document.getElementById('retryBtn')?.addEventListener('click', () => {
-        restoreIdleState();
-        if (file) {
-            setTimeout(() => handleUpload(file), 80);
-        }
-    });
+    const buildTimeout = () => {
+        hero.innerHTML = `
+            <div class="upload-timeout" id="timeoutPhase" role="alert" aria-label="Upload timed out">
+                <div class="upload-timeout__icon" aria-hidden="true">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <p class="upload-timeout__title">Upload Timed Out</p>
+                <p class="upload-timeout__message">
+                    The request took too long and was stopped. This can happen with very large documents
+                    or a slow connection. Your document was not uploaded.
+                </p>
+                <div class="upload-timeout__actions">
+                    <button class="upload-btn upload-btn--primary" id="retryBtn" aria-label="Try uploading again">
+                        <i class="fas fa-arrow-rotate-right" aria-hidden="true"></i>
+                        Try Again
+                    </button>
+                    <button class="upload-btn upload-btn--ghost" id="cancelBtn" aria-label="Cancel and return to upload area">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        `;
 
-    document.getElementById('cancelBtn')?.addEventListener('click', () => {
-        restoreIdleState();
-    });
+        const timeoutEl = document.getElementById('timeoutPhase');
+        UploadAnimator.playEnter(timeoutEl);
+
+        document.getElementById('retryBtn')?.addEventListener('click', () => {
+            restoreIdleState();
+            if (file) setTimeout(() => handleUpload(file), 80);
+        });
+        document.getElementById('cancelBtn')?.addEventListener('click', restoreIdleState);
+    };
+
+    const currentPhase = document.getElementById('uploadingPhase');
+    if (currentPhase) {
+        UploadAnimator.playError(currentPhase, buildTimeout);
+    } else {
+        buildTimeout();
+    }
 }
 
 /**
@@ -551,30 +588,15 @@ function restoreIdleState() {
 // ==================== Upload: Workspace Transition ====================
 
 function transitionToWorkspace() {
-    const uploadSection = document.getElementById('uploadSection');
-    if (uploadSection) {
-        uploadSection.style.transition = 'opacity 0.4s ease';
-        uploadSection.style.opacity    = '0';
-    }
+    UploadAnimator.stopAll();
 
-    setTimeout(() => {
-        if (uploadSection) uploadSection.style.display = 'none';
+    const uploadSection    = document.getElementById('uploadSection');
+    const intelligenceArea = document.getElementById('intelligenceArea');
 
-        const intelligenceArea = document.getElementById('intelligenceArea');
-        if (intelligenceArea) {
-            intelligenceArea.style.display    = 'block';
-            intelligenceArea.style.opacity    = '0';
-            intelligenceArea.style.transition = '';
-            intelligenceArea.classList.add('intelligence-enter');
-
-            void intelligenceArea.offsetWidth; // force reflow
-            intelligenceArea.style.opacity    = '1';
-            intelligenceArea.style.transition = 'opacity 0.45s ease';
-        }
-
+    UploadAnimator.playWorkspaceTransition(uploadSection, intelligenceArea, () => {
         enableSidebarActions(true);
         isProcessing = false;
-    }, 420);
+    });
 }
 
 // ==================== Upload: Listener Setup ====================
@@ -617,6 +639,9 @@ function attachUploadListeners() {
             handleUpload(file);
         }
     });
+
+    // 3D perspective tilt on hover
+    UploadAnimator.attachIdleTilt(uploadArea);
 }
 
 // ==================== Animation Helpers ====================

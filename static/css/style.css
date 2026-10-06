@@ -1382,3 +1382,144 @@ body::before {
         animation: none;
     }
 }
+
+/* ============================================================
+   RAF ANIMATOR OVERRIDES
+   Disables CSS keyframe animations on elements driven by
+   upload-animator.js, and adds supporting structure.
+   ============================================================ */
+
+/* The scan beam is now positioned by JS translateY — remove CSS animation */
+.upload-doc-scan__beam,
+.ua-scan-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    /* Height covers the soft gradient nicely */
+    height: 20px;
+    background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        rgba(255, 255, 255, 0.06) 35%,
+        rgba(255, 255, 255, 0.13) 50%,
+        rgba(255, 255, 255, 0.06) 65%,
+        transparent 100%
+    );
+    /* Start just above the top — JS sets translateY */
+    top: 0;
+    transform: translateY(-20px);
+    opacity: 0;
+    pointer-events: none;
+    /* Intentionally no animation property — RAF drives this */
+}
+
+/* Progress bar: needs a positioned parent for the shimmer child */
+.upload-progress__track {
+    position: relative;
+    overflow: hidden;
+}
+
+/* The track fill is now the base colour bar */
+.upload-progress__fill.ua-shimmer-track,
+.ua-shimmer-track {
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    /* No animation — static base */
+}
+
+/* The shimmer highlight child — JS drives its translateX */
+.upload-progress__shimmer,
+.ua-shimmer-fill {
+    position: absolute;
+    inset: 0;
+    /* Shimmer is a narrow bright streak wider than the track */
+    width: 140%;
+    left: -20%;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.18) 30%,
+        rgba(255, 255, 255, 0.45) 50%,
+        rgba(255, 255, 255, 0.18) 70%,
+        transparent 100%
+    );
+    transform: translateX(-140%);
+    border-radius: 4px;
+    pointer-events: none;
+    /* No animation — RAF drives translateX */
+}
+
+/* Dots: reset any CSS animation — RAF drives scale/opacity */
+.ua-dot,
+.upload-thinking span {
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    background: var(--txt-muted);
+    border-radius: 50%;
+    /* No CSS animation — RAF drives this */
+    animation: none !important;
+}
+
+/* Upload area: add perspective so the 3D tilt reads */
+#uploadArea,
+.pro-upload {
+    transform-style: preserve-3d;
+    /* transition is removed — RAF handles it */
+    transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* Check circle: base state for RAF spring animation */
+.ua-check-circle {
+    transform-origin: center center;
+}
+
+.ua-check-icon {
+    transform-origin: center center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Uploading doc card: RAF drives translateY float */
+.ua-doc-card {
+    transform-origin: center center;
+    /* No CSS animation */
+}
+
+/* Phase containers: initial hidden state for playEnter */
+.upload-uploading,
+.upload-complete,
+.upload-error,
+.upload-timeout {
+    /* Remove previous CSS phaseEnter animation — RAF drives entry now */
+    animation: none;
+}
+
+/* Workspace intelligence area: RAF drives entry — remove CSS class */
+.intelligence-enter {
+    animation: none;
+}
+
+/* ── prefers-reduced-motion additions for RAF elements ── */
+@media (prefers-reduced-motion: reduce) {
+    .ua-scan-line,
+    .upload-doc-scan__beam {
+        display: none;
+    }
+    .ua-shimmer-fill,
+    .upload-progress__shimmer {
+        transform: none;
+        background: rgba(255, 255, 255, 0.25);
+    }
+    .ua-dot {
+        opacity: 0.6;
+        transform: none;
+    }
+    #uploadArea,
+    .pro-upload {
+        transform: none !important;
+    }
+}
