@@ -1426,7 +1426,9 @@ body::before {
     inset: 0;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 4px;
-    /* No animation — static base */
+    /* Kill the old CSS shimmerSlide animation — RAF drives child instead */
+    animation: none;
+    background-size: unset;
 }
 
 /* The shimmer highlight child — JS drives its translateX */
